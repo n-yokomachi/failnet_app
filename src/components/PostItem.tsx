@@ -3,6 +3,8 @@ interface Post {
   content: string;
   author: string;
   createdAt: string;
+  displayDate: string;
+  reactions: number;
 }
 
 interface PostItemProps {
@@ -21,9 +23,12 @@ export default function PostItem({ post }: PostItemProps) {
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-2">
             <h3 className="font-medium text-gray-900">{post.author}</h3>
-            <span className="text-sm text-gray-500">{post.createdAt}</span>
+            <span className="text-sm text-gray-500">{post.displayDate}</span>
           </div>
           <p className="text-gray-800 leading-relaxed">{post.content}</p>
+          <div className="flex items-center space-x-4 mt-3">
+            <span className="text-sm text-gray-500">😅 {post.reactions} リアクション</span>
+          </div>
         </div>
       </div>
     </div>
