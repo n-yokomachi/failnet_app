@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.873.0",
     "aws-amplify": "^6.15.5",
     "next": "15.5.0",
     "react": "19.1.0",
@@ -18,16 +19,17 @@
     "@aws-amplify/backend": "^1.16.1",
     "@aws-amplify/backend-cli": "^1.8.0",
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
     "aws-cdk-lib": "^2.204.0",
     "constructs": "^10.4.2",
     "esbuild": "^0.25.9",
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
-    "tailwindcss": "^4",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2"
   }
