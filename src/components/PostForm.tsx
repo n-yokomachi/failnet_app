@@ -2,7 +2,14 @@
 
 import { useState } from 'react';
 import { client } from '@/lib/amplify';
-import { contentModerationService, ModerationResult } from '@/lib/contentModeration';
+import { moderateContentAction } from '@/app/actions/moderateContent';
+
+export interface ModerationResult {
+  isAppropriate: boolean;
+  confidence: number;
+  reason?: string;
+  suggestedEdit?: string;
+}
 
 const animalNames = ['ハリネズミ', 'フクロウ', 'コアラ', 'ペンギン', 'キツネ', 'リス', 'パンダ', 'ウサギ'];
 
@@ -22,8 +29,8 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
     
     setIsSubmitting(true);
     try {
-      // コンテンツモデレーション実行
-      const moderation = await contentModerationService.moderateContent(content.trim());
+      // コンテンツモデレーション実行 (Mastra版 - Server Action)
+      const moderation = await moderateContentAction(content.trim());
       setModerationResult(moderation);
       
       if (!moderation.isAppropriate) {
