@@ -11,8 +11,11 @@ export async function moderateContentWithMastra(content: string): Promise<Modera
   try {
     const agent = mastra.getAgent('contentModerator');
     
-    const prompt = `以下の投稿内容を分析してください:
+    const prompt = `
+あなたはコンテンツモデレーションの専門家です。
+失敗談を共有するSNSにおいて、投稿内容がセンシティブな情報を含んでいないかを判定してください。
 
+投稿内容は以下のとおりです。
 投稿内容: "${content}"
 
 以下のJSON形式で回答してください:
@@ -20,7 +23,7 @@ export async function moderateContentWithMastra(content: string): Promise<Modera
   "isAppropriate": boolean,
   "confidence": number,
   "reason": "string (不適切な場合のみ)",
-  "suggestedEdit": "string (不適切な場合のみ)"
+  "suggestedEdit": "string (不適切な場合のみ。ただしこれをそのまま投稿内に置換するため、本来のメッセージ以外の内容を含めないこと。例えば「〜に修正することをお勧めします。」など)"
 }`;
 
     const result = await agent.generateVNext(prompt);
