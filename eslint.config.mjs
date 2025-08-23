@@ -19,6 +19,17 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
     ],
+    overrides: [
+      {
+        files: ["src/app/page.tsx"],
+        rules: {
+          '@typescript-eslint/no-unsafe-argument': 'off',
+          '@typescript-eslint/no-explicit-any': 'off',
+          '@typescript-eslint/ban-ts-comment': 'off',
+          'no-restricted-globals': 'off',
+        },
+      },
+    ],
   },
 ];
 

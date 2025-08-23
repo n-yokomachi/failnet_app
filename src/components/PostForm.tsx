@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { client } from '@/lib/amplify';
 import { moderateContentAction } from '@/app/actions/moderateContent';
+import { createPostWithCategory } from '@/lib/postCreation';
 
 export interface ModerationResult {
   isAppropriate: boolean;
@@ -11,7 +11,6 @@ export interface ModerationResult {
   suggestedEdit?: string;
 }
 
-const animalNames = ['ハリネズミ', 'フクロウ', 'コアラ', 'ペンギン', 'キツネ', 'リス', 'パンダ', 'ウサギ'];
 
 interface PostFormProps {
   onPostCreated: () => void;
@@ -39,13 +38,8 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
         return;
       }
       
-      const randomAnimal = animalNames[Math.floor(Math.random() * animalNames.length)];
-      
-      await client.models.Post.create({
-        content: content.trim(),
-        author: randomAnimal,
-        reactions: 0
-      });
+      // モデレーション通過後、投稿直前にカテゴリ分類実行
+      await createPostWithCategory(content.trim());
       
       setContent('');
       setModerationResult(null);
@@ -62,13 +56,8 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
   const handleIgnoreWarning = async () => {
     setIsSubmitting(true);
     try {
-      const randomAnimal = animalNames[Math.floor(Math.random() * animalNames.length)];
-      
-      await client.models.Post.create({
-        content: content.trim(),
-        author: randomAnimal,
-        reactions: 0
-      });
+      // モデレーション警告を無視して投稿直前にカテゴリ分類実行
+      await createPostWithCategory(content.trim());
       
       setContent('');
       setModerationResult(null);
@@ -170,9 +159,10 @@ export default function PostForm({ onPostCreated }: PostFormProps) {
           <button
             type="submit"
             disabled={!content.trim() || content.length > 370 || isSubmitting}
-            className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-orange-500 dark:bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-600 dark:hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
-            {isSubmitting ? '確認中...' : 'ぶっちゃける'}
+            🚀
+            {isSubmitting ? ' 確認中...' : ' ぶっちゃける'}
           </button>
         </div>
       </form>

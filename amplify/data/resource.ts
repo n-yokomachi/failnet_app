@@ -5,8 +5,16 @@ const schema = a.schema({
     .model({
       content: a.string().required(),
       author: a.string().required(),
+      authorImage: a.string(),
       reactions: a.integer().default(0),
+      category: a.string(),
+      reactionData: a.json(),
+      type: a.string().default("post"),
+      createdAt: a.datetime(),
     })
+    .secondaryIndexes((index) => [
+      index("type").sortKeys(["createdAt"])
+    ])
     .authorization((allow) => [allow.publicApiKey()]),
 });
 

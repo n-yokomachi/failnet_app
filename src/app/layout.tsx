@@ -15,8 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Failnet App",
-  description: "Next.jsとAWS Amplifyで構築されたモダンなアプリケーション",
+  title: "FailNet",
 };
 
 export default function RootLayout({

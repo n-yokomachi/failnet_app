@@ -41,15 +41,19 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
             id: post.id,
             content: post.content,
             author: post.author,
+            authorImage: post.authorImage,
             reactions: post.reactions || 0,
-            createdAt: post.createdAt,
-            displayDate: new Date(post.createdAt).toLocaleString('ja-JP', {
-              year: 'numeric',
-              month: 'numeric',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
+            createdAt: post.createdAt ?? '',
+            displayDate:
+              post.createdAt && typeof post.createdAt === 'string'
+                ? new Date(post.createdAt).toLocaleString('ja-JP', {
+                    year: 'numeric',
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : ''
           }));
           setPosts(formattedPosts);
           
@@ -83,15 +87,19 @@ export default function PostDetailPage({ params }: PostDetailPageProps) {
           id: post.id,
           content: post.content,
           author: post.author,
+          authorImage: post.authorImage,
           reactions: post.reactions || 0,
-          createdAt: post.createdAt,
-          displayDate: new Date(post.createdAt).toLocaleString('ja-JP', {
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }) + '前'
+          createdAt: post.createdAt ?? '',
+          displayDate:
+            post.createdAt && typeof post.createdAt === 'string'
+              ? new Date(post.createdAt).toLocaleString('ja-JP', {
+                  year: 'numeric',
+                  month: 'numeric',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                }) + '前'
+              : ''
         }));
         setPosts(formattedPosts);
       }

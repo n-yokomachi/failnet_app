@@ -14,14 +14,29 @@ interface Post {
   reactions: number;
   createdAt: string;
   displayDate: string;
+  reactionData?: string | null;
 }
 
 // Initial empty state
 const initialPosts: Post[] = [];
 
+const categories = [
+  'すべて',
+  '仕事・職場',
+  '人間関係', 
+  'お金・買い物',
+  '健康・生活',
+  '学習・スキル',
+  '趣味・娯楽',
+  '技術・IT',
+  '日常生活',
+  'その他'
+] as const;
+
 export default function Home() {
   const [posts, setPosts] = useState(initialPosts);
   const [sortBy, setSortBy] = useState<'newest' | 'reactions'>('newest');
+  const [selectedCategory, setSelectedCategory] = useState<string>('すべて');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -32,7 +47,7 @@ export default function Home() {
   // Fetch posts from GraphQL API with sorting and pagination
   useEffect(() => {
     fetchInitialPosts();
-  }, [sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortBy, selectedCategory]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchInitialPosts = async () => {
     try {
@@ -41,37 +56,78 @@ export default function Home() {
       setNextToken(null);
       setHasMore(true);
 
-      // Fetch posts and sort client-side
-      const { data } = await client.models.Post.list({
-        limit: 20
-      });
-      
-      let postsData;
+      // Fetch posts using GraphQL secondary index for sorting
+      let response;
       if (sortBy === 'newest') {
-        // Sort by createdAt descending (newest first)
-        postsData = data?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Use secondary index to sort by createdAt (newest first)
+        try {
+          response = await client.models.Post.listPostByTypeAndCreatedAt(
+            { type: 'post' },
+            {
+              limit: 20,
+              sortDirection: 'DESC'
+            }
+          );
+        } catch (error) {
+          console.log('Secondary index method not available, using regular list with client-side sorting:', error);
+          response = await client.models.Post.list({
+            limit: 50
+          });
+        }
       } else {
-        // Sort by reactions descending (highest first)
-        postsData = data?.sort((a, b) => (b.reactions || 0) - (a.reactions || 0));
+        // For reactions, use regular list 
+        response = await client.models.Post.list({
+          limit: 20
+        });
+      }
+      
+      const { data } = response;
+      let postsData = data;
+      
+      // Apply client-side sorting if using fallback regular list
+      if (sortBy === 'newest' && postsData) {
+        postsData = data?.sort((a, b) => 
+          new Date(b.createdAt ?? '').getTime() - new Date(a.createdAt ?? '').getTime()
+        ).slice(0, 20);
+      } else if (sortBy === 'reactions' && postsData) {
+        postsData = data?.sort((a, b) => (b.reactions || 0) - (a.reactions || 0)).slice(0, 20);
       }
 
       if (postsData) {
-        const formattedPosts = postsData.map((post) => ({
+        let filteredPosts = postsData;
+        
+        // Apply category filter
+        if (selectedCategory !== 'すべて') {
+          filteredPosts = postsData.filter(post => post.category === selectedCategory);
+        }
+        
+        const formattedPosts = filteredPosts.map((post) => ({
           id: post.id,
           content: post.content,
           author: post.author,
+          authorImage: post.authorImage,
           reactions: post.reactions || 0,
-          createdAt: post.createdAt,
-          displayDate: new Date(post.createdAt).toLocaleString('ja-JP', {
-            year: 'numeric',
-            month: 'numeric', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+          category: post.category,
+          reactionData:
+            typeof post.reactionData === 'string'
+              ? post.reactionData
+              : post.reactionData != null
+                ? JSON.stringify(post.reactionData)
+                : null,
+          createdAt: post.createdAt ?? '',
+          displayDate: post.createdAt
+            ? new Date(post.createdAt).toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: 'numeric', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : ''
         }));
         setPosts(formattedPosts);
-        setHasMore(formattedPosts.length === 20);
+        setNextToken(response.nextToken || null);
+        setHasMore(formattedPosts.length === 20 && !!response.nextToken);
       }
     } catch (error) {
       console.log('Error fetching posts:', error);
@@ -81,43 +137,83 @@ export default function Home() {
   };
 
   const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMore) return;
+    if (isLoadingMore || !hasMore || !nextToken) return;
 
     try {
       setIsLoadingMore(true);
-      // Fetch more posts and sort client-side
-      const { data } = await client.models.Post.list({
-        limit: 20,
-        nextToken
-      });
-      
-      let newPostsData;
+      // Fetch more posts using GraphQL secondary index for sorting
+      let response;
       if (sortBy === 'newest') {
-        // Sort by createdAt descending (newest first)
-        newPostsData = data?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Use secondary index to sort by createdAt (newest first)
+        try {
+          response = await client.models.Post.listPostByTypeAndCreatedAt(
+            { type: 'post' },
+            {
+              limit: 20,
+              nextToken,
+              sortDirection: 'DESC'
+            }
+          );
+        } catch (error) {
+          console.log('Secondary index method not available for pagination, using regular list:', error);
+          response = await client.models.Post.list({
+            limit: 20,
+            nextToken
+          });
+        }
       } else {
-        // Sort by reactions descending (highest first)
-        newPostsData = data?.sort((a, b) => (b.reactions || 0) - (a.reactions || 0));
+        // For reactions, use regular list with pagination
+        response = await client.models.Post.list({
+          limit: 20,
+          nextToken
+        });
       }
+      
+      const { data } = response;
+      const newPostsData = data;
 
       if (newPostsData && newPostsData.length > 0) {
-        const formattedNewPosts = newPostsData.map((post) => ({
+        let filteredNewPosts = newPostsData;
+        
+        // Apply category filter
+        if (selectedCategory !== 'すべて') {
+          filteredNewPosts = newPostsData.filter(post => post.category === selectedCategory);
+        }
+        
+        const formattedNewPosts = filteredNewPosts.map((post) => ({
           id: post.id,
           content: post.content,
           author: post.author,
+          authorImage: post.authorImage,
           reactions: post.reactions || 0,
-          createdAt: post.createdAt,
-          displayDate: new Date(post.createdAt).toLocaleString('ja-JP', {
-            year: 'numeric',
-            month: 'numeric', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+          category: post.category,
+          reactionData:
+            typeof post.reactionData === 'string'
+              ? post.reactionData
+              : post.reactionData != null
+                ? JSON.stringify(post.reactionData)
+                : null,
+          createdAt: post.createdAt ?? '',
+          displayDate: post.createdAt
+            ? new Date(post.createdAt).toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: 'numeric', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : ''
         }));
 
-        setPosts(prevPosts => [...prevPosts, ...formattedNewPosts]);
-        setHasMore(newPostsData.length === 20);
+        // Filter out duplicates
+        setPosts(prevPosts => {
+          const existingIds = new Set(prevPosts.map(post => post.id));
+          const uniqueNewPosts = formattedNewPosts.filter(post => !existingIds.has(post.id));
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+        
+        setNextToken(response.nextToken || null);
+        setHasMore(!!response.nextToken);
       } else {
         setHasMore(false);
       }
@@ -131,6 +227,33 @@ export default function Home() {
   const handleNewPost = () => {
     // Refresh posts after new post is created
     fetchInitialPosts();
+  };
+
+  const handleReactionUpdate = async (postId: string) => {
+    try {
+      // Update only the specific post instead of refetching all posts
+      const { data: updatedPost } = await client.models.Post.get({ id: postId });
+      if (updatedPost) {
+        setPosts(prevPosts => 
+          prevPosts.map(post =>
+            post.id === postId
+              ? {
+                  ...post,
+                  reactions: updatedPost.reactions || 0,
+                  reactionData:
+                    typeof updatedPost.reactionData === 'string'
+                      ? updatedPost.reactionData
+                      : updatedPost.reactionData != null
+                        ? JSON.stringify(updatedPost.reactionData)
+                        : null
+                }
+              : post
+          )
+        );
+      }
+    } catch (error) {
+      console.log('Error updating post:', error);
+    }
   };
 
   const handlePostClick = (post: Post) => {
@@ -165,31 +288,53 @@ export default function Home() {
         <PostForm onPostCreated={handleNewPost} />
       </div>
 
-      {/* Sort Options */}
+      {/* Sort and Filter Options */}
       <div className="mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSortBy('newest')}
-            disabled={isLoading}
-            className={`px-3 py-1 rounded-md text-sm transition-colors ${
-              sortBy === 'newest'
-                ? 'bg-blue-600 dark:bg-blue-700 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            新着順
-          </button>
-          <button
-            onClick={() => setSortBy('reactions')}
-            disabled={isLoading}
-            className={`px-3 py-1 rounded-md text-sm transition-colors ${
-              sortBy === 'reactions'
-                ? 'bg-blue-600 dark:bg-blue-700 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            リアクション数順
-          </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Sort Options */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSortBy('newest')}
+              disabled={isLoading}
+              className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                sortBy === 'newest'
+                  ? 'bg-blue-600 dark:bg-blue-700 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              新着順
+            </button>
+            <button
+              onClick={() => setSortBy('reactions')}
+              disabled={isLoading}
+              className={`px-3 py-1 rounded-md text-sm transition-colors ${
+                sortBy === 'reactions'
+                  ? 'bg-blue-600 dark:bg-blue-700 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              リアクション数順
+            </button>
+          </div>
+          
+          {/* Category Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">カテゴリ:</span>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              disabled={isLoading}
+              className={`px-3 py-1 rounded-md text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors ${
+                isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -200,7 +345,7 @@ export default function Home() {
         ) : posts.length > 0 ? (
           <>
             {posts.map((post) => (
-              <PostItem key={post.id} post={post} onClick={() => handlePostClick(post)} />
+              <PostItem key={post.id} post={post} onClick={() => handlePostClick(post)} onReactionUpdate={() => handleReactionUpdate(post.id)} />
             ))}
             
             {/* Load More Button */}
@@ -231,6 +376,7 @@ export default function Home() {
           post={selectedPost}
           isOpen={isModalOpen}
           onClose={handleModalClose}
+          onReactionUpdate={() => handleReactionUpdate(selectedPost.id)}
         />
       )}
     </div>

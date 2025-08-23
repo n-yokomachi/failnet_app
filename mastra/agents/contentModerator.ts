@@ -1,10 +1,15 @@
 import { Agent } from '@mastra/core';
-import { bedrock } from '@ai-sdk/amazon-bedrock';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 
-// Set Bedrock API key from environment variable
+// Set environment variable for Bedrock API key authentication
 if (process.env.BEDROCK_API_KEY) {
   process.env.AWS_BEARER_TOKEN_BEDROCK = process.env.BEDROCK_API_KEY;
 }
+
+// Configure Bedrock provider
+const bedrockProvider = createAmazonBedrock({
+  region: process.env.AWS_REGION || 'us-west-2',
+});
 
 export const contentModeratorAgent = new Agent({
   name: 'contentModerator',
@@ -24,5 +29,5 @@ export const contentModeratorAgent = new Agent({
    - suggestedEdit: 不適切な場合の修正提案（日本語）
 
 常に日本語で応答し、JSON形式で結果を返してください。`,
-  model: bedrock('us.anthropic.claude-3-7-sonnet-20250219-v1:0'),
+  model: bedrockProvider('us.anthropic.claude-3-7-sonnet-20250219-v1:0'),
 });
