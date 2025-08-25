@@ -12,7 +12,7 @@ An anonymous posting platform built with Next.js, featuring real-time updates an
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 with App Router
+- **Framework**: Next.js 15.5.0
 - **Styling**: Tailwind CSS
 - **Backend**: AWS Amplify Gen 2
 - **Database**: DynamoDB
